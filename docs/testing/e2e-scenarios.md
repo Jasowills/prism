@@ -23,5 +23,10 @@
 | 19 | Idempotent merchant processing | faults harness + merchant app | pass |
 | 20 | Real Flutterwave test-mode checkout | provider live test | **blocked** (no creds; documented) |
 
+Plus: delayed-webhook rule tests (`packages/core/test/delayed-webhook.test.ts`),
+discrepancy lifecycle incl. resolution history (`test/integration/
+discrepancy-lifecycle.test.ts`), discovery-failure → incomplete run
+(`test/e2e/discovery-failure.test.ts`), CLI smoke (`test/e2e/cli.test.ts`).
+
 "Pass (logic)" = deterministic test against the real code path with memory
 store; Postgres-backed confirmation runs in CI where Docker exists.

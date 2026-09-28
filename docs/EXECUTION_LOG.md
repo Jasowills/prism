@@ -75,3 +75,18 @@ API on :4100 (`PRISM_FORCE_MEMORY=1 FLW_WEBHOOK_SECRET=test-secret`), merchant o
   (Postgres 16 + Redis 7 services, full unit/integration/e2e/faults suites).
 - No `v0.1.0` tag cut: release criteria require the live provider test payment,
   which is blocked on credentials (issue #1).
+
+## 2026-09-28 — While awaiting Flutterwave test credentials
+
+- New tests: delayed-webhook rules, discrepancy lifecycle (merge + append-only
+  resolution), discovery-failure → `incomplete` run (dead-loopback provider),
+  CLI smoke (register → verify → discrepancies). Total 43 passed, 0 failed.
+- Dependency audit: 10 → 1 findings. Upgraded vitest 2→4 (+vite 7, esbuild
+  0.25), drizzle-orm → 0.45.2, drizzle-kit → 0.31. Residual: one
+  `esbuild@0.18.20` nested under drizzle-kit's dev-only ESM loader
+  (GHSA-67mh-4wv8-2f99, local dev-server CORS). Accepted: drizzle-kit is a
+  codegen-only devDependency, never serves network in our flows, no patched
+  upstream without dropping it.
+- Installing local PostgreSQL 16 + Redis via Homebrew (no Docker daemon) to
+  verify the real `PostgresStore` (migrations from empty, triggers, hash
+  chains) and BullMQ queue mode ahead of the live provider run.
