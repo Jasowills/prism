@@ -90,3 +90,21 @@ API on :4100 (`PRISM_FORCE_MEMORY=1 FLW_WEBHOOK_SECRET=test-secret`), merchant o
 - Installing local PostgreSQL 16 + Redis via Homebrew (no Docker daemon) to
   verify the real `PostgresStore` (migrations from empty, triggers, hash
   chains) and BullMQ queue mode ahead of the live provider run.
+
+## 2026-09-28 — Real-infrastructure verification (PG16 + Redis, no Docker)
+
+- Homebrew pulled a Rust bootstrap chain for unrelated bottles; killed it.
+  Redis 8 built from source tarball (`:6380`, modules skipped — not needed).
+  Postgres 16 via Postgres.app DMG (`:5433`, trust auth, db `prism`).
+- **Real Postgres caught a real bug**: `PostgresStore.lastHash()` queried
+  `received_at` on `provider_api_observations` (column is
+  `request_started_at`) — memory tests never exercised the SQL. Fixed with a
+  per-table timestamp column; rebuilt.
+- Verified on PG16: fresh + idempotent migrations, unique-intent rejection,
+  hash-chained inserts, `verifyIntegrity ok`, UPDATE/DELETE triggers reject
+  (`PRISM evidence table ... is append-only`), cross-store deterministic chain.
+- Full stack (API + worker, `DATABASE_URL` + `REDIS_URL`): readiness reports
+  `store:postgres queue:configured`; webhook accepted → BullMQ job → worker
+  processed (`webhook job processed`); rows confirmed via psql; verification
+  reads back correctly. Servers stopped afterwards; infra lives in /tmp
+  (outside the repo).

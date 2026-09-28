@@ -14,12 +14,12 @@
 | 10 | Orphan provider transaction | core test | pass |
 | 11 | Orphan local transaction | core + discovery | pass |
 | 12 | Worker crash recovers, no double processing | faults harness | pass |
-| 13 | DB unavailable → no false ack | code path (persist-first) + ready gate | pass (logic) / pg-backed pending Docker |
+| 13 | DB unavailable → no false ack | code path (persist-first) + ready gate | pass (logic) + trigger rejection verified on PG16 |
 | 14 | Out-of-order observations | core test | pass |
 | 15 | Reversal/refund lifecycle preserved | core test | pass |
-| 16 | Pagination failure → incomplete run | discovery code + unit | pass (logic) / live paging pending creds |
+| 16 | Pagination failure → incomplete run | discovery-failure E2E (dead-loopback provider) | pass |
 | 17 | Tenant isolation | integration security | pass |
-| 18 | Evidence integrity tamper detection | integration store | pass |
+| 18 | Evidence integrity tamper detection | integration store + PG16 trigger/hash verification | pass |
 | 19 | Idempotent merchant processing | faults harness + merchant app | pass |
 | 20 | Real Flutterwave test-mode checkout | provider live test | **blocked** (no creds; documented) |
 

@@ -139,15 +139,9 @@ export class PostgresStore implements EvidenceStore {
   }
 
   private async lastHash(table: 'provider_webhook_events' | 'provider_api_observations'): Promise<string | null> {
-    const res = await this.pool.query(`SELECT entry_hash FROM ${table} ORDER BY received_at DESC, rowid DESC LIMIT 1`.replace('rowid', 'received_at'));
-    // Fallback ordering by received time only
-    void res;
-    const r2 = await this.pool.query(
-      table === 'provider_webhook_events'
-        ? `SELECT entry_hash FROM provider_webhook_events ORDER BY received_at DESC LIMIT 1`
-        : `SELECT entry_hash FROM provider_api_observations ORDER BY request_started_at DESC LIMIT 1`,
-    );
-    return r2.rows[0]?.entry_hash ?? null;
+    const tsCol = table === 'provider_webhook_events' ? 'received_at' : 'request_started_at';
+    const res = await this.pool.query(`SELECT entry_hash FROM ${table} ORDER BY ${tsCol} DESC LIMIT 1`);
+    return res.rows[0]?.entry_hash ?? null;
   }
 
   async addWebhookEvent(
