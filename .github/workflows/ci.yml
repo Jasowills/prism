@@ -21,6 +21,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Workspace packages resolve cross-package types via dist; build them
+      # first so lint/typecheck/test run against fresh sources.
+      - run: pnpm -r build
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
