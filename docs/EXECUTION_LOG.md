@@ -60,3 +60,18 @@ API on :4100 (`PRISM_FORCE_MEMORY=1 FLW_WEBHOOK_SECRET=test-secret`), merchant o
 7. Real Flutterwave test-mode payment NOT executed (no `FLW_SECRET_KEY`, no
    Docker). Manual steps in `docs/guides/flutterwave-setup.md`; results to be
    appended to `docs/testing/provider-test-results.md` when credentials exist.
+
+## 2026-09-28 — Phase 10: publish + CI
+
+- Secret scan: no `.env`, no live/test keys, no private keys in tree. Only
+  `4111111111111111` (public Visa test PAN) inside the redaction unit test.
+- Commit `3b62a0d` (119 files, +11345), repo created `Jasowills/prism` (public,
+  MIT), pushed to `main`. Topics set. Milestone
+  `v0.1.0 — Flutterwave Reconciliation MVP` + 4 tracking issues (#1–#4).
+- CI run 36470847732 failed on `merchant-checkout` typecheck (`@prism/sdk`
+  types resolve via dist, unbuilt on fresh checkout). Fixed with an explicit
+  build-first step in `ci.yml` (commit `799416c`).
+- CI run 36471195034: `build-and-test` success, `integration` success
+  (Postgres 16 + Redis 7 services, full unit/integration/e2e/faults suites).
+- No `v0.1.0` tag cut: release criteria require the live provider test payment,
+  which is blocked on credentials (issue #1).
