@@ -1,0 +1,52 @@
+{
+  "name": "prism",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent payment reconciliation and verification infrastructure",
+  "license": "MIT",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @prism/api dev",
+    "dev:merchant": "pnpm --filter @prism/merchant-checkout dev",
+    "build": "pnpm -r build",
+    "lint": "eslint . --ext .ts --max-warnings=0",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md,yml,yaml}\"",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run packages/core/test",
+    "test:unit": "vitest run packages/core/test",
+    "test:integration": "vitest run test/integration",
+    "test:e2e": "vitest run test/e2e",
+    "test:faults": "vitest run test/faults",
+    "test:provider": "vitest run test/provider",
+    "test:all": "vitest run",
+    "audit": "pnpm audit --audit-level=moderate",
+    "db:generate": "pnpm --filter @prism/database generate",
+    "db:migrate": "pnpm --filter @prism/database migrate",
+    "cli": "pnpm --filter @prism/cli start"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "@types/supertest": "^7.2.1",
+    "@typescript-eslint/eslint-plugin": "^8.71.0",
+    "@typescript-eslint/parser": "^8.71.0",
+    "eslint": "^9.12.0",
+    "prettier": "^3.3.3",
+    "supertest": "^7.3.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "express": "^4.21.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  }
+}

@@ -1,0 +1,16 @@
+FROM node:22-alpine
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY apps/api/package.json apps/api/
+COPY packages/config/package.json packages/config/
+COPY packages/contracts/package.json packages/contracts/
+COPY packages/core/package.json packages/core/
+COPY packages/database/package.json packages/database/
+COPY packages/provider-flutterwave/package.json packages/provider-flutterwave/
+COPY packages/sdk/package.json packages/sdk/
+RUN pnpm install --frozen-lockfile || pnpm install
+COPY . .
+RUN pnpm --filter @prism/api build
+EXPOSE 4100
+CMD ["node", "apps/api/dist/main.js"]

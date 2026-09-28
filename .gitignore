@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Env / secrets — never commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Databases / local data
+*.sqlite
+*.db
+data/
+pgdata/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test artifacts
+coverage/
+.test-results/
+test-results/
+playwright-report/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Docker volumes
+postgres-data/
+redis-data/
+
+# Temp
+tmp/
+temp/
+*.tmp
