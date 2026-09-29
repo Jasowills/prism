@@ -13,27 +13,64 @@ const FLW_SECRET_KEY = process.env.FLW_SECRET_KEY ?? '';
 const PORT = Number(process.env.MERCHANT_PORT ?? 4200);
 const sdk = new PrismSdk({ baseUrl: PRISM_URL, apiKey: process.env.PRISM_API_KEY });
 
+function badge(status: string): string {
+  const s = status.toLowerCase();
+  const cls = s.includes('fulfill') ? 'ok' : s.includes('return') || s.includes('webhook') ? 'warn' : 'new';
+  return `<span class="badge ${cls}">${status}</span>`;
+}
+
 function html(order?: Order): string {
-  return `<!doctype html><html><head><title>Prism Demo Store</title>
-<style>body{font-family:system-ui;max-width:720px;margin:2rem auto;padding:0 1rem}input,button{padding:.5rem;margin:.25rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:.4rem}</style>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prism Demo Store</title>
+<style>
+:root{--bg:#0f1420;--card:#1a2233;--line:#2a3550;--txt:#e8edf5;--mut:#93a0b8;--acc:#5b8cff;--ok:#2fbf71;--warn:#e5a13d}
+*{box-sizing:border-box}body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);margin:0;padding:0 1rem 3rem}
+header{display:flex;align-items:center;gap:.75rem;max-width:860px;margin:0 auto;padding:1.5rem 0}
+.logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#5b8cff,#9b6bff);display:flex;align-items:center;justify-content:center;font-weight:800}
+header h1{font-size:1.25rem;margin:0}header small{color:var(--mut)}
+main{max-width:860px;margin:0 auto;display:grid;gap:1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.25rem}
+.card h2{margin:0 0 .75rem;font-size:1rem;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.row{display:flex;gap:.5rem;flex-wrap:wrap}
+input{background:#0d1322;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:.6rem .75rem;font-size:.95rem}
+button{background:var(--acc);border:0;color:#fff;border-radius:8px;padding:.6rem 1rem;font-size:.95rem;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+button:hover{filter:brightness(1.1)}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th{color:var(--mut);text-align:left;font-weight:600;padding:.5rem;border-bottom:1px solid var(--line)}
+td{padding:.55rem .5rem;border-bottom:1px solid var(--line)}
+td a{color:var(--acc);text-decoration:none;font-family:ui-monospace,monospace;font-size:.85rem}
+.badge{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.8rem;font-weight:600}
+.badge.ok{background:rgba(47,191,113,.15);color:var(--ok)}
+.badge.warn{background:rgba(229,161,61,.15);color:var(--warn)}
+.badge.new{background:rgba(91,140,255,.15);color:var(--acc)}
+pre{background:#0d1322;border:1px solid var(--line);border-radius:8px;padding:.75rem;overflow:auto;font-size:.8rem;max-height:320px}
+.pay{display:inline-block;margin:.5rem 0;background:var(--ok);color:#04120a;text-decoration:none;font-weight:700;border-radius:8px;padding:.65rem 1.25rem}
+footer{max-width:860px;margin:1.5rem auto 0;color:var(--mut);font-size:.85rem}
+</style>
 </head><body>
-<h1>Prism Demo Store</h1>
-<h2>New order</h2>
-<form method="POST" action="/orders">
-<input name="amount" value="100.00" /> <input name="currency" value="NGN" />
-<input name="email" value="buyer@example.com" />
-<button type="submit">Create order</button></form>
-<h2>Orders (${store.all().length})</h2>
+<header><div class="logo">P</div><div><h1>Prism Demo Store</h1><small>test mode only · no live payments</small></div></header>
+<main>
+<div class="card"><h2>New order</h2>
+<form method="POST" action="/orders"><div class="row">
+<input name="amount" value="100.00" size="8" /> <input name="currency" value="NGN" size="5" />
+<input name="email" value="buyer@example.com" size="24" />
+<button type="submit">Create order</button></div></form></div>
+<div class="card"><h2>Orders (${store.all().length})</h2>
 <table><tr><th>reference</th><th>amount</th><th>status</th><th>fulfilled</th></tr>
-${store.all().map((o) => `<tr><td><a href="/orders/${o.reference}">${o.reference}</a></td><td>${o.amount} ${o.currency}</td><td>${o.status}</td><td>${o.fulfillmentCount}x</td></tr>`).join('')}
-</table>
-${order ? `<h2>Order ${order.reference}</h2><pre>${JSON.stringify(order, null, 2)}</pre>
-<p><a href="${order.checkoutLink ?? '#'}">Pay with Flutterwave</a></p>
-<form method="POST" action="/orders/${order.reference}/simulate-webhook">
-<button type="submit">Simulate provider webhook (test)</button></form>
-<form method="POST" action="/orders/${order.reference}/fulfill">
-<button type="submit">Fulfill (idempotent)</button></form>` : ''}
-<p>PRISM: ${PRISM_URL} · Flutterwave test mode only. No live payments.</p>
+${store.all().map((o) => `<tr><td><a href="/orders/${o.reference}">${o.reference}</a></td><td>${o.amount} ${o.currency}</td><td>${badge(o.status)}</td><td>${o.fulfillmentCount}x</td></tr>`).join('')}
+</table></div>
+${order ? `<div class="card"><h2>Order ${order.reference}</h2>${badge(order.status)}
+<p><a class="pay" href="${order.checkoutLink ?? '#'}">Pay with Flutterwave</a></p>
+<div class="row">
+<form method="POST" action="/orders/${order.reference}/simulate-webhook"><button class="ghost" type="submit">Simulate webhook</button></form>
+<form method="POST" action="/orders/${order.reference}/fulfill"><button type="submit">Fulfill (idempotent)</button></form>
+<form method="GET" action="/orders/${order.reference}/reconciliation"><button class="ghost" type="submit">View reconciliation</button></form>
+</div>
+<pre>${JSON.stringify(order, null, 2)}</pre></div>` : ''}
+</main>
+<footer>Backed by PRISM at ${PRISM_URL} · intents, webhooks, verification and reconciliation are recorded per order.</footer>
 </body></html>`;
 }
 
