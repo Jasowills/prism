@@ -33,7 +33,10 @@ async function main(): Promise<void> {
     const tenant = String(data.tenantId ?? cfg.PRISM_TENANT_ID);
     const reference = data.reference ? String(data.reference) : null;
     if (!reference) return;
-    const intent = await store.getIntentByReference(tenant, 'flutterwave', reference);
+    const provider = data.provider === 'paystack' ? 'paystack' : 'flutterwave';
+    const intent =
+      (await store.getIntentByReference(tenant, provider, reference)) ??
+      (await store.getIntentByReference(tenant, provider === 'paystack' ? 'flutterwave' : 'paystack', reference));
     const webhooks = await store.listWebhooksByReference(tenant, reference);
     const apiObs = await store.listApiObservationsByReference(tenant, reference);
     const ledger = await store.listLedgerByReference(tenant, reference);

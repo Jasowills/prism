@@ -45,7 +45,7 @@ export function mapProviderStatus(raw: string | null | undefined): PaymentState 
   if (!raw) return null;
   const s = raw.toLowerCase().trim();
   if (['successful', 'success', 'completed', 'paid', 'approved'].includes(s)) return 'SUCCESSFUL';
-  if (['pending', 'processing', 'initiated', 'created', 'new'].includes(s)) return 'PENDING';
+  if (['pending', 'processing', 'ongoing', 'queued', 'initiated', 'created', 'new'].includes(s)) return 'PENDING';
   if (['failed', 'error', 'declined', 'cancelled_failed'].includes(s)) return 'FAILED';
   if (['cancelled', 'canceled', 'abandoned', 'expired'].includes(s)) return 'CANCELLED';
   if (['reversed', 'reversal'].includes(s)) return 'REVERSED';

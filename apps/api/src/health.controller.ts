@@ -41,7 +41,10 @@ export class HealthController {
     } else {
       out.redis = 'not-configured (inline queue)';
     }
-    out.provider = this.prism.flw ? 'configured' : 'not-configured (local evidence only)';
+    out.provider = [
+      this.prism.flw ? 'flutterwave:configured' : 'flutterwave:not-configured',
+      this.prism.paystack ? 'paystack:configured' : 'paystack:not-configured',
+    ].join(', ');
     return out;
   }
 
@@ -59,6 +62,7 @@ export class HealthController {
         '/v1/payment-intents': { post: { summary: 'Register expected payment intent' } },
         '/v1/payment-intents/{id}/ledger-observations': { post: { summary: 'Record merchant ledger observation' } },
         '/v1/webhooks/flutterwave': { post: { summary: 'Flutterwave webhook receiver' } },
+        '/v1/webhooks/paystack': { post: { summary: 'Paystack webhook receiver' } },
         '/v1/transactions/{reference}/verification': { get: { summary: 'Verify + reconcile a reference' } },
         '/v1/reconciliation-runs': { post: { summary: 'Start discovery reconciliation' } },
         '/v1/reconciliation-runs/{id}': { get: { summary: 'Get run status' } },

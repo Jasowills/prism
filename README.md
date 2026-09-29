@@ -5,7 +5,7 @@ Independent payment evidence and reconciliation infrastructure. PRISM compares
 observations**, and **expected payment intent** to detect missing notifications,
 duplicates, amount/currency mismatches, orphans, reversals, and incomplete runs.
 
-Initial provider: **Flutterwave** (test mode). Stack: TypeScript strict, NestJS,
+Providers: **Flutterwave** + **Paystack** (test mode; Paystack live-verified paths are mocked-only until keys exist). Stack: TypeScript strict, NestJS,
 PostgreSQL (Drizzle + explicit SQL), Redis + BullMQ, Zod, Pino, Commander,
 Vitest, Docker Compose, pnpm.
 

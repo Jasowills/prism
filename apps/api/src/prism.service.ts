@@ -2,8 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { loadConfig, type PrismConfig } from '@prism/config';
 import { MemoryStore, PostgresStore, redactDeep, sha256Hex, canonicalJson, type EvidenceStore } from '@prism/database';
 import { reconcile, deliveryFingerprint, type ProviderObservation as CoreObs, type SettlementObservation } from '@prism/core';
-import { FlutterwaveClient, normalizeTransaction, verifyWebhook } from '@prism/provider-flutterwave';
+import { FlutterwaveClient, normalizeTransaction, verifyWebhook as verifyFlwWebhook } from '@prism/provider-flutterwave';
+import { PaystackClient, verifyWebhook as verifyPaystackWebhook } from '@prism/provider-paystack';
 import { logger } from './logging.js';
+
+export const SUPPORTED_PROVIDERS = ['flutterwave', 'paystack'] as const;
+export type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
+
+function isProvider(value: string): value is SupportedProvider {
+  return (SUPPORTED_PROVIDERS as readonly string[]).includes(value);
+}
 
 @Injectable()
 export class PrismService {
@@ -11,6 +19,7 @@ export class PrismService {
   readonly store: EvidenceStore;
   private pgStore: PostgresStore | null = null;
   readonly flw: FlutterwaveClient | null;
+  readonly paystack: PaystackClient | null;
   readonly storeKind: 'postgres' | 'memory';
 
   constructor() {
@@ -27,6 +36,9 @@ export class PrismService {
     }
     this.flw = this.config.FLW_SECRET_KEY
       ? new FlutterwaveClient({ secretKey: this.config.FLW_SECRET_KEY, baseUrl: this.config.FLW_BASE_URL })
+      : null;
+    this.paystack = this.config.PAYSTACK_SECRET_KEY
+      ? new PaystackClient({ secretKey: this.config.PAYSTACK_SECRET_KEY, baseUrl: this.config.PAYSTACK_BASE_URL })
       : null;
   }
 
@@ -78,26 +90,44 @@ export class PrismService {
     });
   }
 
+  /** Find a local intent across supported providers (flutterwave first). */
+  async findIntent(tenantId: string, reference: string) {
+    for (const provider of SUPPORTED_PROVIDERS) {
+      const intent = await this.store.getIntentByReference(tenantId, provider, reference);
+      if (intent) return intent;
+    }
+    return null;
+  }
+
+  private webhookSecretFor(provider: SupportedProvider): string {
+    return provider === 'paystack' ? this.config.PAYSTACK_WEBHOOK_SECRET : this.config.FLW_WEBHOOK_SECRET;
+  }
+
   // ---- Webhook ingestion: persist-first, then ack (spec §9) ----
-  async ingestWebhook(tenantId: string, rawBody: Buffer, headers: Record<string, string>) {
-    const secret = this.config.FLW_WEBHOOK_SECRET;
+  async ingestWebhook(tenantId: string, provider: SupportedProvider, rawBody: Buffer, headers: Record<string, string>) {
+    const secret = this.webhookSecretFor(provider);
     if (!secret) {
       // Never accept unsigned webhooks merely to simplify testing (spec §2).
       // In test mode with explicit opt-in, allow unsigned ONLY when marked as test fixture.
       if (this.config.PRISM_ALLOW_TEST_WEBHOOKS && headers['x-prism-test'] === 'true') {
-        return this.persistWebhook(tenantId, rawBody, headers, false, 'test-bypass');
+        return this.persistWebhook(tenantId, provider, rawBody, headers, false, 'test-bypass');
       }
       throw Object.assign(new Error('webhook secret not configured; refusing unsigned webhook'), { status: 503 });
     }
-    const result = await verifyWebhook(rawBody, headers, secret);
+    const result =
+      provider === 'paystack'
+        ? await verifyPaystackWebhook(rawBody, headers, secret)
+        : await verifyFlwWebhook(rawBody, headers, secret);
     if (!result.valid) {
       throw Object.assign(new Error('invalid webhook signature'), { status: 401 });
     }
-    return this.persistWebhook(tenantId, rawBody, headers, true, result.mechanism, result);
+    const mechanism = provider === 'paystack' ? 'hmac-sha512' : ((result as { mechanism?: string }).mechanism ?? 'unknown');
+    return this.persistWebhook(tenantId, provider, rawBody, headers, true, mechanism, result);
   }
 
   private async persistWebhook(
     tenantId: string,
+    provider: SupportedProvider,
     rawBody: Buffer,
     _headers: Record<string, string>,
     signatureValid: boolean,
@@ -134,12 +164,13 @@ export class PrismService {
     const redacted = redactDeep(payload) as Record<string, unknown>;
     const row = await this.store.addWebhookEvent({
       tenantId,
-      provider: 'flutterwave',
+      provider,
       providerEventId: providerTxId,
       eventType,
       providerReference,
       providerTxId,
-      providerEventAt: (data?.created_at as string | undefined) ?? null,
+      providerEventAt:
+      ((data?.created_at as string | undefined) ?? (data?.paid_at as string | undefined) ?? (data?.transaction_date as string | undefined) ?? null),
       signatureValid,
       payloadHash,
       payloadRedacted: { ...redacted, _mechanism: mechanism },
@@ -150,19 +181,29 @@ export class PrismService {
   }
 
   // ---- Verification: reconcile a single reference ----
-  async verifyReference(tenantId: string, reference: string, opts: { liveVerify?: boolean } = {}) {
-    const intent = await this.store.getIntentByReference(tenantId, 'flutterwave', reference);
+  async verifyReference(
+    tenantId: string,
+    reference: string,
+    opts: { liveVerify?: boolean; provider?: string } = {},
+  ) {
+    const requested = opts.provider && isProvider(opts.provider) ? opts.provider : null;
+    const intent =
+      requested != null
+        ? await this.store.getIntentByReference(tenantId, requested, reference)
+        : await this.findIntent(tenantId, reference);
+    const provider: SupportedProvider = (intent?.provider && isProvider(intent.provider) ? intent.provider : 'flutterwave');
     const webhooks = await this.store.listWebhooksByReference(tenantId, reference);
     let apiObs = await this.store.listApiObservationsByReference(tenantId, reference);
 
     // Optionally hit live provider (only when credentials present and explicitly requested).
-    if (opts.liveVerify && this.flw && intent) {
+    const liveClient = provider === 'paystack' ? this.paystack : this.flw;
+    if (opts.liveVerify && liveClient && intent) {
       const started = new Date().toISOString();
       try {
-        const { httpStatus, observation } = await this.flw.verifyByReference(reference);
+        const { httpStatus, observation } = await liveClient.verifyByReference(reference);
         await this.store.addApiObservation({
           tenantId,
-          provider: 'flutterwave',
+          provider,
           queryType: 'verify_by_reference',
           queryReference: reference,
           providerTxId: observation.providerTxId ?? null,
@@ -174,7 +215,7 @@ export class PrismService {
           currency: observation.currency ?? null,
           responseHash: sha256Hex(canonicalJson(redactDeep(observation.raw))),
           responseRedacted: redactDeep(observation.raw),
-          outcome: httpStatus === 404 ? 'not_found' : 'success',
+          outcome: httpStatus === 404 || observation.providerStatus == null ? 'not_found' : 'success',
         });
         apiObs = await this.store.listApiObservationsByReference(tenantId, reference);
       } catch (e: unknown) {
@@ -182,7 +223,7 @@ export class PrismService {
         const outcome = err?.status === 429 ? 'rate_limited' : err?.status === 401 ? 'auth_error' : 'timeout';
         await this.store.addApiObservation({
           tenantId,
-          provider: 'flutterwave',
+          provider,
           queryType: 'verify_by_reference',
           queryReference: reference,
           requestStartedAt: started,
@@ -269,10 +310,10 @@ export class PrismService {
   }
 
   // ---- Discovery reconciliation over a UTC window ----
-  async runDiscovery(tenantId: string, windowFrom: string, windowTo: string) {
+  async runDiscovery(tenantId: string, provider: SupportedProvider, windowFrom: string, windowTo: string) {
     const run = await this.store.createRun({
       tenantId,
-      provider: 'flutterwave',
+      provider,
       runType: 'window',
       windowFrom,
       windowTo,
@@ -282,20 +323,21 @@ export class PrismService {
       let recordsScanned = 0;
       let complete = true;
       const errors: unknown[] = [];
-      if (this.flw) {
+      const client = provider === 'paystack' ? this.paystack : this.flw;
+      if (client) {
         // Paginate provider listing; any page failure → run incomplete (never falsely complete).
         let page = 1;
         const from = windowFrom.slice(0, 10);
         const to = windowTo.slice(0, 10);
         for (;;) {
           try {
-            const res = await this.flw.listTransactions({ from, to, page });
+            const res = await client.listTransactions({ from, to, page });
             pagesScanned++;
             recordsScanned += res.data.length;
             for (const tx of res.data) {
               await this.store.addApiObservation({
                 tenantId,
-                provider: 'flutterwave',
+                provider,
                 queryType: 'discovery',
                 queryReference: tx.providerReference ?? null,
                 providerTxId: tx.providerTxId ?? null,

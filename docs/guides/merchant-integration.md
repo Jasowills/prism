@@ -17,7 +17,7 @@
 
 ## Example app
 
-`examples/merchant-checkout` implements this end to end: checkout page, order
+`examples/merchant-checkout` implements this end to end for Flutterwave (Paystack checkout differs only in initialization: `POST /transaction/initialize` with kobo amounts → `authorization_url`): checkout page, order
 DB (in-memory), Flutterwave redirect, return handling, webhook endpoint with
 delivery dedupe, one-shot fulfillment, order status page, and a
 `simulate-webhook` test helper. The critical demo: drop the first webhook,

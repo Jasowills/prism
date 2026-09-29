@@ -93,6 +93,9 @@ importers:
       '@prism/provider-flutterwave':
         specifier: workspace:*
         version: link:../../packages/provider-flutterwave
+      '@prism/provider-paystack':
+        specifier: workspace:^
+        version: link:../../packages/provider-paystack
       bullmq:
         specifier: ^5.12.0
         version: 5.81.5
@@ -234,6 +237,12 @@ importers:
         version: 4.23.15
 
   packages/provider-flutterwave:
+    dependencies:
+      '@prism/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/provider-paystack:
     dependencies:
       '@prism/core':
         specifier: workspace:*

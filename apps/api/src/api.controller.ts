@@ -66,11 +66,12 @@ export class ApiController {
 
   @Get('transactions/:reference/verification')
   @UseGuards(ApiKeyGuard)
-  async verify(@Param('reference') reference: string, @Req() req: Request, @Query('live') live?: string) {
+  async verify(@Param('reference') reference: string, @Req() req: Request, @Query('live') live?: string, @Query('provider') provider?: string) {
     metrics.verifications++;
     const tenantId = tenantOf(req);
     const { intent, verification } = await this.prism.verifyReference(tenantId, reference, {
       liveVerify: live === 'true',
+      provider,
     });
     return {
       reference,
@@ -88,7 +89,8 @@ export class ApiController {
     if (!parsed.success) throw new HttpException({ error: 'invalid input', details: parsed.error.issues }, 400);
     metrics.reconciliationRuns++;
     const tenantId = parsed.data.tenantId ?? tenantOf(req);
-    const run = await this.prism.runDiscovery(tenantId, parsed.data.windowFrom, parsed.data.windowTo);
+    const provider = parsed.data.provider === 'paystack' ? 'paystack' : 'flutterwave';
+    const run = await this.prism.runDiscovery(tenantId, provider, parsed.data.windowFrom, parsed.data.windowTo);
     // enqueue background follow-up (idempotent; safe to re-run)
     try {
       const q = await getQueue(process.env.REDIS_URL);
