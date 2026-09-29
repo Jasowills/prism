@@ -1,5 +1,13 @@
 # Merchant integration (SDK + example)
 
+## Purpose and scope
+
+`examples/merchant-checkout` is a working example merchant for developers
+running PRISM payment-scenario demos: create order, pay via hosted checkout,
+handle return, receive webhooks, fulfill exactly once, inspect reconciliation.
+Its UI (`DESIGN.md` alongside the app) is a night-service console that surfaces
+PRISM verification state per order. Test-mode keys only; demo PII only.
+
 ## Pattern
 
 1. Create order in your DB.

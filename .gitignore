@@ -44,3 +44,6 @@ redis-data/
 tmp/
 temp/
 *.tmp
+
+# Impeccable design-tool internal state (regenerable)
+.impeccable/
