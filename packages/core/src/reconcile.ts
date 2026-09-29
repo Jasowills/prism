@@ -98,12 +98,18 @@ export function reconcile(input: ReconciliationInput): ReconciliationResult {
 
   // --- Orphan checks
   if (!input.intent) {
-    findings.push({
-      type: 'orphaned_provider_transaction',
-      severity: DISCREPANCY_SEVERITY.orphaned_provider_transaction,
-      detail: 'Provider evidence exists without a local payment intent.',
-      evidenceRefs: input.webhooks.map((w) => ref(`webhook:${w.id}`)),
-    });
+    const hasProviderEvidence =
+      input.webhooks.length > 0 ||
+      input.providerObservations.length > 0 ||
+      (input.settlements ?? []).length > 0;
+    if (hasProviderEvidence) {
+      findings.push({
+        type: 'orphaned_provider_transaction',
+        severity: DISCREPANCY_SEVERITY.orphaned_provider_transaction,
+        detail: 'Provider evidence exists without a local payment intent.',
+        evidenceRefs: input.webhooks.map((w) => ref(`webhook:${w.id}`)),
+      });
+    }
     for (const o of input.settlements ?? []) {
       findings.push({
         type: 'orphaned_settlement',
@@ -114,7 +120,11 @@ export function reconcile(input: ReconciliationInput): ReconciliationResult {
     }
     return {
       paymentStatus: 'UNKNOWN',
-      verificationStatus: input.discoveryComplete ? 'DISCREPANCY' : 'RECONCILIATION_INCOMPLETE',
+      verificationStatus: !hasProviderEvidence
+        ? 'UNVERIFIED'
+        : input.discoveryComplete
+          ? 'DISCREPANCY'
+          : 'RECONCILIATION_INCOMPLETE',
       deliveryStatus: input.webhooks.length ? 'DELIVERED' : 'UNKNOWN',
       ledgerStatus: input.ledger.length ? 'MISMATCH' : 'MISSING',
       settlementStatus: 'UNKNOWN',

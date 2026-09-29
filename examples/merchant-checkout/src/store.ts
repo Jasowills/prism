@@ -2,6 +2,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+export interface TimelineStep {
+  label: string;
+  at: string;
+}
+
 export interface OrderRecord {
   id: string;
   reference: string;
@@ -13,6 +18,9 @@ export interface OrderRecord {
   prismIntentId?: string;
   checkoutLink?: string;
   processedWebhooks: string[];
+  createdAt: string;
+  updatedAt: string;
+  timeline: TimelineStep[];
 }
 
 /** Order persistence: Postgres when reachable, otherwise in-memory. */
@@ -50,6 +58,9 @@ export class OrderStore {
   }
 
   async save(order: OrderRecord): Promise<void> {
+    const now = new Date().toISOString();
+    if (!order.createdAt) order.createdAt = now;
+    order.updatedAt = now;
     this.memory.set(order.reference, order);
     if (this.pool) {
       await this.pool.query(

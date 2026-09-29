@@ -88,6 +88,12 @@ describe('reconciliation', () => {
     void TENANT;
   });
 
+  it('no intent and no evidence is UNVERIFIED, never an orphan finding', () => {
+    const r = reconcile(base({ intent: null }));
+    expect(r.verificationStatus).toBe('UNVERIFIED');
+    expect(r.findings).toHaveLength(0);
+  });
+
   it('14. out-of-order observations use latest observedAt, not arrival order', () => {
     const r = reconcile(
       base({

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T17:45:00.000Z",
+  "title": "Design System: Prism Demo Store",
+  "extensions": {
+    "colorMeta": {
+      "signal-amber": { "role": "primary", "displayName": "Signal Amber", "canonical": "#f0a832", "tonalRamp": ["#2a1e08", "#4d3a10", "#70571c", "#93742a", "#b28d33", "#d0a637", "#e5b93f", "#f0a832"] },
+      "ink-ground": { "role": "neutral", "displayName": "Ink Ground", "canonical": "#0c0f14" },
+      "console-panel": { "role": "neutral", "displayName": "Console Panel", "canonical": "#12161f" },
+      "ivory-ink": { "role": "neutral", "displayName": "Ivory Ink", "canonical": "#e9e4d8" },
+      "state-green": { "role": "secondary", "displayName": "State Green", "canonical": "#3fce7a" },
+      "fault-red": { "role": "secondary", "displayName": "Fault Red", "canonical": "#e5605c" }
+    },
+    "motion": [
+      { "name": "live-pulse", "value": "pulse 2.4s ease-out infinite (opacity 1 to 0.35)", "purpose": "The single authored motion: the console live dot. Disabled under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "stack", "value": "820px" },
+      { "name": "compact-bar", "value": "600px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one amber action per window.",
+      "html": "<button class=\"ds-btn-primary\">Open order</button>",
+      "css": ".ds-btn-primary{background:#f0a832;color:#171106;border:0;border-radius:6px;padding:10px 18px;font-size:15px;font-weight:700;cursor:pointer} .ds-btn-primary:hover{filter:brightness(1.08)} .ds-btn-primary:active{transform:translateY(1px)} .ds-btn-primary:focus-visible{outline:2px solid #f0a832;outline-offset:2px}"
+    },
+    {
+      "name": "State Lamp",
+      "kind": "custom",
+      "refersTo": "button-primary",
+      "description": "Flat 9px status dot shown beside the value it qualifies.",
+      "html": "<span class=\"ds-lamp ok\"></span>",
+      "css": ".ds-lamp{display:inline-block;width:9px;height:9px;border-radius:50%} .ds-lamp.ok{background:#3fce7a} .ds-lamp.warn{background:#f0a832} .ds-lamp.bad{background:#e5605c} .ds-lamp.dim{background:#5b6579}"
+    },
+    {
+      "name": "Readout Row",
+      "kind": "custom",
+      "refersTo": "button-ghost",
+      "description": "One verification dimension: key, lamp, value.",
+      "html": "<div class=\"ds-ro\"><span class=\"ds-ro-k\">payment</span><span class=\"ds-lamp ok\"></span><span class=\"ds-ro-v\">successful</span></div>",
+      "css": ".ds-ro{display:grid;grid-template-columns:110px 20px 1fr;align-items:center;gap:8px;padding:8px 13px;background:#0e1219} .ds-ro-k{font-family:ui-monospace,monospace;font-size:12px;color:#8f99ad} .ds-ro-v{font-family:ui-monospace,monospace;font-size:14px;color:#e9e4d8}"
+    },
+    {
+      "name": "Console Input",
+      "kind": "input",
+      "refersTo": "button-ghost",
+      "description": "Order entry field on panel-deep ground.",
+      "html": "<input class=\"ds-input\" value=\"100.00\" />",
+      "css": ".ds-input{background:#0e1219;border:1px solid #232b3b;color:#e9e4d8;border-radius:6px;padding:9px 11px;font-size:15px;width:100%;font-family:ui-monospace,monospace} .ds-input:focus-visible{outline:2px solid #f0a832;outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night Desk",
+    "overview": "The store reads as the downstream end of a payment pipeline at night: a service console where orders arrive, state lamps flip, and the PRISM readout tells the truth about money.",
+    "keyCharacteristics": ["Console windows with stamped titles, not cards with icons.", "Monospace only for references, amounts, readouts, and timestamps.", "Amber means act or attend; green means settled; red means fault.", "Motion is a single live-dot pulse; everything else is instant."],
+    "rules": [
+      { "name": "The Amber Rarity Rule", "body": "Amber appears on fewer than one in ten elements per screen.", "section": "colors" },
+      { "name": "The Flat Lamp Rule", "body": "State dots are flat color, never glows or halos.", "section": "colors" },
+      { "name": "The Mono Means Data Rule", "body": "If it isn't a reference, amount, timestamp, or readout value, it isn't monospace.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest; state changes, not shadows, signal interactivity.", "section": "elevation" }
+    ],
+    "dos": ["Do keep amber rare — actions and live state only.", "Do set every reference, amount, and timestamp in mono with tabular numerals.", "Do show the honest empty/offline state.", "Do theme browser surfaces."],
+    "donts": ["Don't add kickers, section numbers, gradient text, or glass effects.", "Don't use mono for prose, buttons, or headings.", "Don't invent glow, shadows, or accent border strips.", "Don't fabricate timeline events or log lines for legacy rows."]
+  }
+}
