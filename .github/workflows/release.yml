@@ -21,6 +21,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Cross-package types resolve via dist — build before checking.
+      - run: pnpm -r build
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
