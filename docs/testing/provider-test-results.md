@@ -1,29 +1,36 @@
 # Provider test results
 
-Date: 2026-09-28. Environment: macOS, Node 24, no Docker daemon, no
-`FLW_SECRET_KEY`/`FLW_PUBLIC_KEY`/`FLW_WEBHOOK_SECRET` in environment.
+## Live test-mode run — 2026-09-29 (PASSED)
 
-## Executed
+Environment: macOS, Node 24, local Postgres 16 + Redis (no Docker daemon),
+real `FLW_SECRET_KEY`/`FLW_PUBLIC_KEY`/`FLW_WEBHOOK_SECRET` from operator `.env`
+(git-ignored, values never recorded). Cloudflare tunnel exposed local API.
 
-- Mocked adapter tests (`test/provider/adapter.test.ts`): verify-by-ID mapping,
-  discovery pagination stop condition, unknown-shape normalization — **4 passed**.
-- Webhook dual-mechanism tests (`test/integration/webhook-security.test.ts`):
-  static `verif-hash` accept, HMAC base64 accept, wrong/unsigned reject —
-  **3 passed**.
-- Live discovery test: **SKIPPED by design** (`FLW_SECRET_KEY` absent). The test
-  logs `SKIP live provider test` and performs no assertions — it is reported as
-  blocked, not passed.
+- **Intent**: `demo-mumlrc59-8624`, 100.00 NGN, id `a442abf6-…` (merchant app).
+- **Payment**: Flutterwave hosted checkout, test card → redirect
+  `?transaction_id=10520620`, merchant status `returned(tx=10520620)`.
+- **Webhook**: delivered through tunnel, signature verified (`verif-hash`
+  mechanism), persisted before ack (`accepted:true duplicate:false`), worker
+  consumed BullMQ job.
+- **Live verification** (`?live=true`, `verify_by_reference`): provider
+  `status=successful`, amount/currency match →
+  `payment=SUCCESSFUL delivery=DELIVERED`; only finding
+  `orphaned_local_transaction` (merchant had not fulfilled yet — correct).
+- **Fulfillment**: merchant fulfill → exactly once; re-verify →
+  `SUCCESSFUL / VERIFIED / DELIVERED / MATCHING`, zero findings.
+- **Resolution**: orphan finding resolved with reason; history preserved.
+- **Resend**: `POST /v3/transactions/resend-hook {"txref"}` → provider
+  `"hook sent successfully"`, but no redelivery observed within ~5 min
+  (test-mode best-effort). Duplicate handling remains covered by local
+  E2E + fault harness (proven, not re-proven live).
+- **Discovery**: first window run (right after payment) saw 0 records while
+  verify-by-reference already succeeded — provider listing is eventually
+  consistent; re-run minutes later → `complete, pages=1, records=1` with a
+  stored `discovery` observation. Runs report exactly what they observed.
 
-## Real test-mode flow (spec §7/§10)
+## Earlier runs (2026-09-28, no credentials)
 
-Not executed: no Flutterwave test credentials are available in this environment,
-and no Docker daemon exists for the Compose stack. The full manual procedure is
-documented in `docs/guides/flutterwave-setup.md`; on completion, record here:
-timestamp, tx_ref/transaction ID, verification result, webhook receipt time,
-reconciliation result, and sanitized logs.
-
-## Locally verified substitute
-
-API E2E + fault harness exercise the identical code paths (ingest → persist →
-verify → reconcile → fulfill-once) with signed test deliveries
-(`x-prism-test` bypass is dev-only and explicit). See `docs/EXECUTION_LOG.md`.
+- Mocked adapter tests: verify-by-ID, pagination stop, normalization — passed.
+- Dual-mechanism webhook tests — passed.
+- Live discovery test SKIPPED by design (no key). Now superseded by the live
+  run above.

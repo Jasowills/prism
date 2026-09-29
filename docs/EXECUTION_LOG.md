@@ -91,6 +91,19 @@ API on :4100 (`PRISM_FORCE_MEMORY=1 FLW_WEBHOOK_SECRET=test-secret`), merchant o
   verify the real `PostgresStore` (migrations from empty, triggers, hash
   chains) and BullMQ queue mode ahead of the live provider run.
 
+## 2026-09-29 — Live Flutterwave test-mode E2E (PASSED)
+
+Operator supplied test keys + dashboard webhook config (tunnel URL + secret).
+API + worker on local PG/Redis, merchant :4200, cloudflared tunnel verified
+via pinned-IP probe (local DNS flaky; provider-side unaffected).
+Flow: intent → hosted checkout → test-card payment (tx 10520620) → webhook via
+tunnel (verified, persisted, worker-processed) → live verify SUCCESSFUL →
+orphan finding (correct, pre-fulfillment) → fulfill once → VERIFIED, zero
+findings → resolution recorded. Resend-hook accepted by provider, redelivery
+not observed (~5 min). Discovery: first run 0 records (listing lag), re-run
+complete with 1 record. Full evidence in
+`docs/testing/provider-test-results.md`. unblocks issue #1 and the v0.1.0 tag.
+
 ## 2026-09-28 — Real-infrastructure verification (PG16 + Redis, no Docker)
 
 - Homebrew pulled a Rust bootstrap chain for unrelated bottles; killed it.
