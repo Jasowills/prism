@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (rules v1.1.0)
+## v0.2.0 (2026-09-29)
 
 - Settlement reconciliation (issue #3): typed settlement records, refresh
   endpoint + CLI, sixth `settlementStatus` dimension, three new finding types.
