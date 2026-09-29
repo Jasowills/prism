@@ -36,7 +36,8 @@ describe('CLI smoke', () => {
   });
 
   it('register-intent → verify → discrepancies', async () => {
-    const env = { PRISM_API_URL: `http://localhost:${PORT}` };
+    // Dedicated tenant: e2e files share one database and run in parallel.
+    const env = { PRISM_API_URL: `http://localhost:${PORT}`, PRISM_TENANT_ID: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' };
     const ref = `cli-${Date.now().toString(36)}`;
     const created = await cli(['register-intent', '--reference', ref, '--amount', '42.50', '--currency', 'NGN'], env);
     expect(created).toContain(ref);
