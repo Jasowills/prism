@@ -20,11 +20,12 @@ Both are preserved on every observation. Verification prefers
 `from`/`to` are required YYYY-MM-DD by the provider. PRISM slices ISO windows
 to dates for listing but keeps the exact ISO window for intent scoping.
 
-## D4 — Settlement reconciliation is out of scope for v0.1.0
+## D4 — Settlement reconciliation (superseded 2026-09-29)
 
-The settlements endpoint is documented and wrapped (`listSettlements`), but no
-settlement-matching rules ship in v0.1.0. Revisit when payout-join keys are
-confirmed against live data.
+Originally out of scope for v0.1.0. Implemented in v1.1.0 rules as designed
+above: payout-join on reference keys, sixth `settlementStatus` dimension, no
+missing-settlement findings. Live refresh against the test account stored 0
+lines (no settlements on the account yet) — path verified, data pending.
 
 ## D5 — No numeric rate limit assumed
 

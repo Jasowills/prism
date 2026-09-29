@@ -104,6 +104,18 @@ not observed (~5 min). Discovery: first run 0 records (listing lag), re-run
 complete with 1 record. Full evidence in
 `docs/testing/provider-test-results.md`. unblocks issue #1 and the v0.1.0 tag.
 
+## 2026-09-29 — Incident: test helper wiped local live rows (recovered, guarded)
+
+- While building issue #2, an early `openTestStore` draft truncated the shared
+  `prism` database (pg log confirmed TRUNCATE CASCADE), deleting the local
+  live-test rows (intent, webhook, observations, ledger for `demo-mumlrc59-8624`).
+  No committed evidence affected; provider-side data intact.
+- Fixed going forward: per-file `prism_test_*` databases + `truncateForTests`
+  refuses any database not prefixed `prism_test_`.
+- Restored honestly: re-registered the same intent, live re-verify →
+  SUCCESSFUL (webhook/ledger history not fabricated; release evidence in
+  `docs/testing/provider-test-results.md` stands as the contemporaneous record).
+
 ## 2026-09-28 — Real-infrastructure verification (PG16 + Redis, no Docker)
 
 - Homebrew pulled a Rust bootstrap chain for unrelated bottles; killed it.

@@ -1,4 +1,4 @@
-# Reconciliation engine (`@prism/core`, rules `prism-rules-v1.0.0`)
+# Reconciliation engine (`@prism/core`, rules `prism-rules-v1.1.0`)
 
 For each reference (spec §7):
 
@@ -13,7 +13,11 @@ For each reference (spec §7):
 7. Check fulfillment markers → `duplicate_fulfillment_risk` on repeats.
 8. Detect post-success reversal/refund → `unexpected_reversal` (history kept).
 9. Check discovery completeness → `reconciliation_incomplete` when partial.
-10. Persist typed findings with evidence refs + rule version; return five
+10. Evaluate settlement lines matched by reference → `settlementStatus`
+    (`SETTLED/PENDING/FLAGGED/UNKNOWN`); `settlement_pending`,
+    `settlement_amount_mismatch`, `orphaned_settlement` as specified. Absence
+    of settlement evidence is never a finding.
+11. Persist typed findings with evidence refs + rule version; return six
     dimensions plus human-readable `explain` lines.
 
 Orphan rules: no intent + provider evidence → `orphaned_provider_transaction`;

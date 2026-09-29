@@ -64,6 +64,7 @@ export class HealthController {
         '/v1/reconciliation-runs/{id}': { get: { summary: 'Get run status' } },
         '/v1/discrepancies': { get: { summary: 'List discrepancies' } },
         '/v1/discrepancies/{id}/resolutions': { post: { summary: 'Resolve discrepancy (append-only)' } },
+        '/v1/settlements/refresh': { post: { summary: 'Refresh provider settlement observations' } },
       },
     };
   }

@@ -14,10 +14,14 @@ Sources:
   collection balance to the settlement account / F4B wallet on a per-method
   timeline. Flagged settlements are withheld — see the dashboard for reasons.
 
-## PRISM position (v0.1.0)
+## PRISM position (v0.1.0 → v1.1.0)
 
-- PRISM records settlement observations via `FlutterwaveClient.listSettlements`
-  but does **not** claim settlement reconciliation in v0.1.0: settlement records
-  are provider-payout evidence, distinct from payment authorization evidence.
-- Roadmap: join settlement lines to intents on `tx_ref`/destination references
-  and add `settlement_status` as a sixth evidence dimension.
+- v0.1.0: endpoint wrapped (`listSettlements`) but no matching rules.
+- v1.1.0 (implemented): typed `SettlementRecord` + `normalizeSettlement`;
+  `POST /v1/settlements/refresh` stores each line as a `provider_api_observations`
+  row (`query_type='settlement'`); reconciliation exposes a sixth dimension,
+  `settlementStatus` (`SETTLED/PENDING/FLAGGED/UNKNOWN`), with findings
+  `settlement_pending` (low), `settlement_amount_mismatch` (high),
+  `orphaned_settlement` (medium). Absence of settlement evidence is never a
+  finding — payout lags authorization by design. Rules version
+  `prism-rules-v1.1.0`.

@@ -64,9 +64,18 @@ export class PostgresStore implements EvidenceStore {
 
   /** Test-only reset. TRUNCATE bypasses the row-level append-only triggers. */
   async truncateForTests(): Promise<void> {
+    const name = await this.currentDatabase();
+    if (!name.startsWith('prism_test_')) {
+      throw new Error(`refusing to truncate non-test database "${name}"`);
+    }
     await this.pool.query(
       `TRUNCATE discrepancy_events, discrepancies, reconciliation_runs, merchant_ledger_observations, provider_api_observations, provider_webhook_events, intent_amendments, payment_intents CASCADE`,
     );
+  }
+
+  private async currentDatabase(): Promise<string> {
+    const res = await this.pool.query(`SELECT current_database() AS db`);
+    return String(res.rows[0].db);
   }
 
   /** Test-only raw query (e.g. asserting trigger rejection). */

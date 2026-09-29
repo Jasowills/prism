@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (rules v1.1.0)
+
+- Settlement reconciliation (issue #3): typed settlement records, refresh
+  endpoint + CLI, sixth `settlementStatus` dimension, three new finding types.
+- Issue #2: suites run against real Postgres/Redis when reachable (per-file
+  test databases, BullMQ round-trip test); `truncateForTests` refuses
+  non-test databases.
+- Dependencies: vitest 4, drizzle-orm 0.45, audit 10 → 1 (residual dev-only).
+
 ## v0.1.0 (2026-09-28)
 
 - Flutterwave reconciliation MVP: intents, dual-scheme webhook verification with

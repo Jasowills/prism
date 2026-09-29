@@ -72,6 +72,18 @@ program
   });
 
 program
+  .command('settlements')
+  .description('Refresh provider settlement observations for a window')
+  .requiredOption('--from <iso>', 'window start ISO')
+  .requiredOption('--to <iso>', 'window end ISO')
+  .action(async (opts) => {
+    await call('/v1/settlements/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ windowFrom: opts.from, windowTo: opts.to }),
+    });
+  });
+
+program
   .command('verify-integrity')
   .description('Verify evidence hash-chain integrity (server-side)')
   .action(async () => {

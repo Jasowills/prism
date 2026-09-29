@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { loadConfig, type PrismConfig } from '@prism/config';
 import { MemoryStore, PostgresStore, redactDeep, sha256Hex, canonicalJson, type EvidenceStore } from '@prism/database';
-import { reconcile, deliveryFingerprint, type ProviderObservation as CoreObs } from '@prism/core';
+import { reconcile, deliveryFingerprint, type ProviderObservation as CoreObs, type SettlementObservation } from '@prism/core';
 import { FlutterwaveClient, normalizeTransaction, verifyWebhook } from '@prism/provider-flutterwave';
 import { logger } from './logging.js';
 
@@ -197,6 +197,20 @@ export class PrismService {
     }
 
     const ledger = await this.store.listLedgerByReference(tenantId, reference);
+    const settlementRows = apiObs.filter((o) => o.queryType === 'settlement');
+    const paymentObs = apiObs.filter((o) => o.queryType !== 'settlement');
+    const settlements: SettlementObservation[] = settlementRows.map((o) => {
+      const rec = (o.responseRedacted ?? {}) as { netAmount?: string | null };
+      return {
+        settlementId: o.providerTxId,
+        reference: o.queryReference,
+        grossAmount: o.amount,
+        netAmount: rec.netAmount ?? null,
+        currency: o.currency,
+        state: (o.providerStatus ?? 'unknown') as SettlementObservation['state'],
+        observedAt: o.responseReceivedAt ?? o.requestStartedAt,
+      };
+    });
     const result = reconcile({
       intent: intent
         ? {
@@ -215,7 +229,7 @@ export class PrismService {
         providerEventAt: w.providerEventAt,
         duplicateOf: w.duplicateOf,
       })),
-      providerObservations: apiObs.map(
+      providerObservations: paymentObs.map(
         (o): CoreObs => ({
           providerTxId: o.providerTxId,
           providerReference: o.queryReference,
@@ -226,6 +240,7 @@ export class PrismService {
           outcome: o.outcome as CoreObs['outcome'],
         }),
       ),
+      settlements,
       ledger: ledger.map((l) => ({
         recordedStatus: l.recordedStatus,
         recordedAmount: l.recordedAmount,
@@ -330,5 +345,44 @@ export class PrismService {
 
   normalize(raw: unknown) {
     return normalizeTransaction(raw);
+  }
+
+  /**
+   * Pull settlement lines for a date window and store each as a
+   * `provider_api_observations` row (query_type='settlement'). Gross amount
+   * goes in `amount`, payout state in `providerStatus`, full normalized line
+   * (incl. net) in `responseRedacted`.
+   */
+  async refreshSettlements(tenantId: string, from: string, to: string): Promise<{ stored: number; pages: number }> {
+    if (!this.flw) {
+      throw Object.assign(new Error('provider credentials not configured'), { status: 503 });
+    }
+    let page = 1;
+    let stored = 0;
+    let pages = 0;
+    for (;;) {
+      const res = await this.flw.listSettlements({ page, from, to });
+      pages++;
+      for (const line of res.data) {
+        await this.store.addApiObservation({
+          tenantId,
+          provider: 'flutterwave',
+          queryType: 'settlement',
+          queryReference: line.reference,
+          providerTxId: line.id,
+          providerStatus: line.state,
+          amount: line.grossAmount,
+          currency: line.currency,
+          responseHash: sha256Hex(canonicalJson(redactDeep(line.raw))),
+          responseRedacted: redactDeep({ ...line, raw: undefined }),
+          outcome: 'success',
+          responseReceivedAt: new Date().toISOString(),
+        });
+        stored++;
+      }
+      if (!res.hasMore || page >= 50) break;
+      page++;
+    }
+    return { stored, pages };
   }
 }

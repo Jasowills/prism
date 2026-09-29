@@ -256,14 +256,89 @@ export class FlutterwaveClient {
     return { link, raw: body };
   }
 
-  /** GET /settlements */
-  async listSettlements(params: { page?: number; from?: string; to?: string } = {}): Promise<unknown> {
+  /** GET /settlements — paginated payout records. */
+  async listSettlements(
+    params: { page?: number; from?: string; to?: string; subaccountId?: string } = {},
+  ): Promise<PaginatedSettlements> {
     const qs = new URLSearchParams();
     if (params.page) qs.set('page', String(params.page));
     if (params.from) qs.set('from', params.from);
     if (params.to) qs.set('to', params.to);
+    if (params.subaccountId) qs.set('subaccount_id', params.subaccountId);
     const { status, body } = await this.request(`/settlements?${qs.toString()}`);
     if (status >= 400) throw Object.assign(new Error(`settlements failed: ${status}`), { status, body });
-    return body;
+    const b = body as {
+      data?: unknown[];
+      meta?: { page_info?: { total?: number; current_page?: number; total_pages?: number } };
+    };
+    const data = Array.isArray(b.data) ? b.data.map(normalizeSettlement) : [];
+    const pageInfo = b.meta?.page_info;
+    const page = pageInfo?.current_page ?? params.page ?? 1;
+    const totalPages = pageInfo?.total_pages ?? null;
+    return {
+      data,
+      page,
+      totalPages,
+      total: pageInfo?.total ?? null,
+      hasMore: totalPages !== null ? page < totalPages : data.length > 0,
+    };
   }
+}
+
+export type SettlementState = 'settled' | 'pending' | 'flagged' | 'unknown';
+
+export interface SettlementRecord {
+  id: string | null;
+  /** Join key to local intent where available (disburse/tx reference or narration). */
+  reference: string | null;
+  grossAmount: string | null;
+  netAmount: string | null;
+  currency: string | null;
+  state: SettlementState;
+  settledAt: string | null;
+  raw: unknown;
+}
+
+export interface PaginatedSettlements {
+  data: SettlementRecord[];
+  page: number;
+  totalPages: number | null;
+  total: number | null;
+  hasMore: boolean;
+}
+
+function firstString(obj: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === 'string' && v.length > 0) return v;
+    if (typeof v === 'number') return String(v);
+  }
+  return null;
+}
+
+function mapSettlementState(raw: unknown): SettlementState {
+  if (typeof raw !== 'string') return 'unknown';
+  const s = raw.toLowerCase().trim();
+  if (['completed', 'settled', 'successful', 'paid', 'disbursed'].includes(s)) return 'settled';
+  if (['pending', 'processing', 'new', 'initiated'].includes(s)) return 'pending';
+  if (['failed', 'flagged', 'reversed', 'cancelled', 'canceled'].includes(s)) return 'flagged';
+  return 'unknown';
+}
+
+/** Normalize one settlement line. Unknown shapes yield nulls, never throw. */
+export function normalizeSettlement(item: unknown): SettlementRecord {
+  const o = (item ?? {}) as Record<string, unknown>;
+  const gross = firstString(o, 'gross_amount', 'grossAmount', 'amount');
+  const net = firstString(o, 'net_amount', 'netAmount', 'settled_amount', 'amount_settled');
+  return {
+    id: firstString(o, 'id', 'settlement_id', 'disburse_ref'),
+    reference: firstString(o, 'disburse_ref', 'tx_ref', 'txRef', 'reference', 'narration', 'merchant_name'),
+    grossAmount: gross,
+    netAmount: net,
+    currency: firstString(o, 'currency'),
+    state: mapSettlementState(o.status ?? o.settlement_status),
+    settledAt:
+      firstString(o, 'settlement_date', 'settled_at', 'created_datetime', 'created_at', 'updated_at') ?? null,
+    raw: item,
+  };
 }

@@ -50,15 +50,28 @@ async function main(): Promise<void> {
         providerEventAt: w.providerEventAt,
         duplicateOf: w.duplicateOf,
       })),
-      providerObservations: apiObs.map((o) => ({
-        providerTxId: o.providerTxId,
-        providerReference: o.queryReference,
-        providerStatus: o.providerStatus,
-        amount: o.amount,
-        currency: o.currency,
-        observedAt: o.responseReceivedAt ?? o.requestStartedAt,
-        outcome: o.outcome as 'success',
-      })),
+      providerObservations: apiObs
+        .filter((o) => o.queryType !== 'settlement')
+        .map((o) => ({
+          providerTxId: o.providerTxId,
+          providerReference: o.queryReference,
+          providerStatus: o.providerStatus,
+          amount: o.amount,
+          currency: o.currency,
+          observedAt: o.responseReceivedAt ?? o.requestStartedAt,
+          outcome: o.outcome as 'success',
+        })),
+      settlements: apiObs
+        .filter((o) => o.queryType === 'settlement')
+        .map((o) => ({
+          settlementId: o.providerTxId,
+          reference: o.queryReference,
+          grossAmount: o.amount,
+          netAmount: ((o.responseRedacted ?? {}) as { netAmount?: string | null }).netAmount ?? null,
+          currency: o.currency,
+          state: (o.providerStatus ?? 'unknown') as 'settled' | 'pending' | 'flagged' | 'unknown',
+          observedAt: o.responseReceivedAt ?? o.requestStartedAt,
+        })),
       ledger: ledger.map((l) => ({
         recordedStatus: l.recordedStatus,
         recordedAmount: l.recordedAmount,

@@ -107,6 +107,23 @@ export class ApiController {
     return run;
   }
 
+  @Post('settlements/refresh')
+  @UseGuards(ApiKeyGuard)
+  async refreshSettlements(@Body() body: { windowFrom?: string; windowTo?: string }, @Req() req: Request) {
+    const from = (body?.windowFrom ?? new Date(Date.now() - 30 * 86400000).toISOString()).slice(0, 10);
+    const to = (body?.windowTo ?? new Date().toISOString()).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      throw new HttpException({ error: 'windowFrom/windowTo must be ISO dates' }, 400);
+    }
+    const tenantId = (body as { tenantId?: string })?.tenantId ?? tenantOf(req);
+    try {
+      return await this.prism.refreshSettlements(tenantId, from, to);
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      throw new HttpException({ error: err?.message ?? 'refresh failed' }, err?.status ?? 500);
+    }
+  }
+
   @Get('discrepancies')
   @UseGuards(ApiKeyGuard)
   async listDiscrepancies(@Req() req: Request, @Query('status') status?: string) {

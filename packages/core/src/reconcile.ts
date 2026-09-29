@@ -43,11 +43,26 @@ export interface LedgerObservation {
   observedAt: string;
 }
 
+export type SettlementState = 'settled' | 'pending' | 'flagged' | 'unknown';
+
+export interface SettlementObservation {
+  settlementId?: string | null;
+  reference?: string | null;
+  grossAmount?: string | null;
+  netAmount?: string | null;
+  currency?: string | null;
+  state: SettlementState;
+  observedAt: string;
+}
+
+export type SettlementStatus = 'SETTLED' | 'PENDING' | 'FLAGGED' | 'UNKNOWN';
+
 export interface ReconciliationInput {
   intent: ExpectedIntent | null;
   webhooks: WebhookEvidence[];
   providerObservations: ProviderObservation[];
   ledger: LedgerObservation[];
+  settlements?: SettlementObservation[];
   nowIso: string;
   graceMinutes: number;
   discoveryComplete: boolean;
@@ -58,6 +73,7 @@ export interface ReconciliationResult {
   verificationStatus: VerificationState;
   deliveryStatus: 'DELIVERED' | 'MISSING' | 'DELAYED' | 'DUPLICATE' | 'UNKNOWN';
   ledgerStatus: 'MATCHING' | 'MISMATCH' | 'MISSING' | 'UNKNOWN';
+  settlementStatus: SettlementStatus;
   evidenceCompleteness: 'COMPLETE' | 'PARTIAL' | 'MISSING';
   findings: DiscrepancyFinding[];
   ruleVersion: string;
@@ -88,11 +104,20 @@ export function reconcile(input: ReconciliationInput): ReconciliationResult {
       detail: 'Provider evidence exists without a local payment intent.',
       evidenceRefs: input.webhooks.map((w) => ref(`webhook:${w.id}`)),
     });
+    for (const o of input.settlements ?? []) {
+      findings.push({
+        type: 'orphaned_settlement',
+        severity: DISCREPANCY_SEVERITY.orphaned_settlement,
+        detail: `Settlement line ${o.settlementId ?? '(unknown id)'} has no local intent.`,
+        evidenceRefs: ['settlement'],
+      });
+    }
     return {
       paymentStatus: 'UNKNOWN',
       verificationStatus: input.discoveryComplete ? 'DISCREPANCY' : 'RECONCILIATION_INCOMPLETE',
       deliveryStatus: input.webhooks.length ? 'DELIVERED' : 'UNKNOWN',
       ledgerStatus: input.ledger.length ? 'MISMATCH' : 'MISSING',
+      settlementStatus: 'UNKNOWN',
       evidenceCompleteness: 'PARTIAL',
       findings,
       ruleVersion: RULE_VERSION,
@@ -263,6 +288,52 @@ export function reconcile(input: ReconciliationInput): ReconciliationResult {
     });
   }
 
+  // settlement evidence (v1.1.0): matched by reference; absence is never a
+  // finding (payout lags authorization by design and timelines vary by method).
+  const settlements = input.settlements ?? [];
+  let settlementStatus: SettlementStatus = 'UNKNOWN';
+  const matched = intent
+    ? settlements.filter((s) => s.reference !== null && s.reference !== undefined && s.reference === intent.merchantReference)
+    : [];
+  const orphans = settlements.filter(
+    (s) => s.reference === null || s.reference === undefined || (intent !== null && s.reference !== intent.merchantReference),
+  );
+  if (matched.length > 0) {
+    const states = new Set(matched.map((m) => m.state));
+    if (states.has('flagged')) {
+      settlementStatus = 'FLAGGED';
+      findings.push({
+        type: 'orphaned_settlement',
+        severity: DISCREPANCY_SEVERITY.orphaned_settlement,
+        detail: 'Settlement line(s) flagged/failed by provider; payout withheld.',
+        evidenceRefs: matched.map((_, i) => `settlement:${i}`),
+      });
+    } else if (states.has('settled')) {
+      settlementStatus = 'SETTLED';
+      const settled = matched.find((m) => m.state === 'settled')!;
+      if (settled.grossAmount && !moneyEquals(settled.grossAmount, intent!.expectedAmount)) {
+        findings.push({
+          type: 'settlement_amount_mismatch',
+          severity: DISCREPANCY_SEVERITY.settlement_amount_mismatch,
+          detail: `Expected ${intent!.expectedAmount} ${intent!.currency}, settled gross ${settled.grossAmount} ${settled.currency ?? ''}`.trim(),
+          evidenceRefs: ['intent', 'settlement'],
+        });
+        explain.push('Settlement gross differs from expected intent amount.');
+      }
+    } else if (states.has('pending') || states.has('unknown')) {
+      settlementStatus = 'PENDING';
+      findings.push({
+        type: 'settlement_pending',
+        severity: DISCREPANCY_SEVERITY.settlement_pending,
+        detail: 'Payout recorded but not yet settled by provider.',
+        evidenceRefs: matched.map((_, i) => `settlement:${i}`),
+      });
+    }
+  }
+  if (orphans.length > 0 && settlements.length > 0 && matched.length === 0) {
+    explain.push(`${orphans.length} settlement line(s) reference other transactions; ignored for this reference.`);
+  }
+
   // discovery completeness
   if (!input.discoveryComplete) {
     findings.push({
@@ -294,7 +365,7 @@ export function reconcile(input: ReconciliationInput): ReconciliationResult {
   if (!input.intent) verificationStatus = 'DISCREPANCY';
 
   explain.push(
-    `payment=${paymentStatus} verification=${verificationStatus} delivery=${deliveryStatus} ledger=${ledgerStatus} completeness=${evidenceCompleteness} findings=${findings.length} rules=${RULE_VERSION}`,
+    `payment=${paymentStatus} verification=${verificationStatus} delivery=${deliveryStatus} ledger=${ledgerStatus} settlement=${settlementStatus} completeness=${evidenceCompleteness} findings=${findings.length} rules=${RULE_VERSION}`,
   );
 
   return {
@@ -302,6 +373,7 @@ export function reconcile(input: ReconciliationInput): ReconciliationResult {
     verificationStatus,
     deliveryStatus,
     ledgerStatus,
+    settlementStatus,
     evidenceCompleteness,
     findings,
     ruleVersion: RULE_VERSION,
