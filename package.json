@@ -24,6 +24,7 @@
     "test:e2e": "vitest run test/e2e",
     "test:faults": "vitest run test/faults",
     "test:provider": "vitest run test/provider",
+    "test:load": "vitest run test/load",
     "test:all": "vitest run",
     "audit": "pnpm audit --audit-level=moderate",
     "db:generate": "pnpm --filter @prism/database generate",

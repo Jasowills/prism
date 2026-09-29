@@ -1,20 +1,8 @@
 import express from 'express';
 import { PrismSdk } from '@prism/sdk';
+import { OrderStore, type OrderRecord as Order } from './store.js';
 
-interface Order {
-  id: string;
-  reference: string;
-  amount: string;
-  currency: string;
-  email: string;
-  status: string;
-  fulfillmentCount: number;
-  prismIntentId?: string;
-  checkoutLink?: string;
-  processedWebhooks: string[];
-}
-
-const orders = new Map<string, Order>();
+const store = new OrderStore();
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -35,9 +23,9 @@ function html(order?: Order): string {
 <input name="amount" value="100.00" /> <input name="currency" value="NGN" />
 <input name="email" value="buyer@example.com" />
 <button type="submit">Create order</button></form>
-<h2>Orders (${orders.size})</h2>
+<h2>Orders (${store.all().length})</h2>
 <table><tr><th>reference</th><th>amount</th><th>status</th><th>fulfilled</th></tr>
-${[...orders.values()].map((o) => `<tr><td><a href="/orders/${o.reference}">${o.reference}</a></td><td>${o.amount} ${o.currency}</td><td>${o.status}</td><td>${o.fulfillmentCount}x</td></tr>`).join('')}
+${store.all().map((o) => `<tr><td><a href="/orders/${o.reference}">${o.reference}</a></td><td>${o.amount} ${o.currency}</td><td>${o.status}</td><td>${o.fulfillmentCount}x</td></tr>`).join('')}
 </table>
 ${order ? `<h2>Order ${order.reference}</h2><pre>${JSON.stringify(order, null, 2)}</pre>
 <p><a href="${order.checkoutLink ?? '#'}">Pay with Flutterwave</a></p>
@@ -100,13 +88,13 @@ app.post('/orders', async (req, res) => {
     checkoutLink: link,
     processedWebhooks: [],
   };
-  orders.set(reference, order);
+  await store.save(order);
   if (req.headers.accept?.includes('application/json')) return res.json(order);
   res.redirect(`/orders/${reference}`);
 });
 
 app.get('/orders/:ref', (req, res) => {
-  const o = orders.get(req.params.ref);
+  const o = store.get(req.params.ref);
   if (!o) return res.status(404).send('not found');
   if (req.headers.accept?.includes('application/json')) return res.json(o);
   res.send(html(o));
@@ -114,10 +102,11 @@ app.get('/orders/:ref', (req, res) => {
 
 // Payment return handling: verify via PRISM (which can live-verify provider) before showing status.
 app.get('/orders/:ref/return', async (req, res) => {
-  const o = orders.get(req.params.ref);
+  const o = store.get(req.params.ref);
   if (!o) return res.status(404).send('not found');
   const txId = req.query.transaction_id ? String(req.query.transaction_id) : null;
   o.status = txId ? `returned(tx=${txId})` : 'returned';
+  await store.save(o);
   try {
     await sdk.verify(o.reference);
   } catch {
@@ -130,20 +119,21 @@ app.get('/orders/:ref/return', async (req, res) => {
 app.post('/webhooks/flutterwave', express.json({ verify: (req: unknown, _res, buf: Buffer) => { (req as { rawBody?: Buffer }).rawBody = buf; } }), async (req, res) => {
   const deliveryId = String(req.headers['x-delivery-id'] ?? (req.body?.id as string | undefined) ?? JSON.stringify(req.body).slice(0, 32));
   const txRef = (req.body?.data?.tx_ref as string | undefined) ?? (req.body?.tx_ref as string | undefined);
-  if (txRef && orders.has(txRef)) {
-    const o = orders.get(txRef)!;
+  if (txRef && store.get(txRef)) {
+    const o = store.get(txRef)!;
     if (o.processedWebhooks.includes(deliveryId)) {
       return res.json({ ok: true, duplicate: true }); // inspectable, no double fulfill
     }
     o.processedWebhooks.push(deliveryId);
     o.status = 'webhook-received';
+    await store.save(o);
   }
   res.json({ ok: true });
 });
 
 // Test helper: simulate a provider webhook delivery (also forwards to PRISM when configured).
 app.post('/orders/:ref/simulate-webhook', async (req, res) => {
-  const o = orders.get(req.params.ref);
+  const o = store.get(req.params.ref);
   if (!o) return res.status(404).send('not found');
   const payload = { event: 'charge.completed', data: { id: 999999, tx_ref: o.reference, amount: Number(o.amount), currency: o.currency, status: 'successful' } };
   // Forward to PRISM webhook receiver as a signed test delivery.
@@ -157,12 +147,13 @@ app.post('/orders/:ref/simulate-webhook', async (req, res) => {
     /* ignore */
   }
   o.status = 'webhook-simulated';
+  await store.save(o);
   res.redirect(`/orders/${o.reference}`);
 });
 
 // Fulfillment simulation: exactly-once. Retry after commit does not fulfill twice.
 app.post('/orders/:ref/fulfill', async (req, res) => {
-  const o = orders.get(req.params.ref);
+  const o = store.get(req.params.ref);
   if (!o) return res.status(404).send('not found');
   if (o.fulfillmentCount >= 1) {
     // idempotent: do not re-fulfill. Record the suppressed retry as evidence
@@ -178,6 +169,7 @@ app.post('/orders/:ref/fulfill', async (req, res) => {
   }
   o.fulfillmentCount = 1;
   o.status = 'fulfilled';
+  await store.save(o);
   try {
     if (o.prismIntentId) {
       await sdk.recordLedger(o.prismIntentId, { merchantReference: o.reference, recordedStatus: 'successful', recordedAmount: o.amount, currency: o.currency, fulfillmentStatus: 'fulfilled' });
@@ -198,4 +190,5 @@ app.get('/orders/:ref/reconciliation', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`merchant-checkout listening on :${PORT}, PRISM=${PRISM_URL}, FLW_PUBLIC_KEY=${FLW_PUBLIC_KEY ? 'set' : 'missing'}`));
+const backend = await store.init();
+app.listen(PORT, () => console.log(`merchant-checkout listening on :${PORT}, PRISM=${PRISM_URL}, FLW_PUBLIC_KEY=${FLW_PUBLIC_KEY ? 'set' : 'missing'}, orders=${backend}`));

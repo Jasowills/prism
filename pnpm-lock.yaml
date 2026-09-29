@@ -180,10 +180,16 @@ importers:
       express:
         specifier: ^4.21.2
         version: 4.22.3
+      pg:
+        specifier: ^8.13.1
+        version: 8.23.0
     devDependencies:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.25
+      '@types/pg':
+        specifier: ^8.11.0
+        version: 8.23.1
       tsx:
         specifier: ^4.19.1
         version: 4.23.15
