@@ -38,11 +38,12 @@ export class PostgresStore implements EvidenceStore {
 
   async migrate(): Promise<void> {
     const here = dirname(fileURLToPath(import.meta.url));
-    // dist layout: dist/*.js, migrations at package root
+    // NOTE: under vitest/vite transforms import.meta.url may not map to the
+    // source tree, so prefer the cwd-anchored path first.
     const candidates = [
+      join(process.cwd(), 'packages/database/migrations/001_init.sql'),
       join(here, '../../migrations/001_init.sql'),
       join(here, '../migrations/001_init.sql'),
-      join(process.cwd(), 'packages/database/migrations/001_init.sql'),
     ];
     let sql = '';
     for (const c of candidates) {
@@ -59,6 +60,19 @@ export class PostgresStore implements EvidenceStore {
 
   async close(): Promise<void> {
     await this.pool.end();
+  }
+
+  /** Test-only reset. TRUNCATE bypasses the row-level append-only triggers. */
+  async truncateForTests(): Promise<void> {
+    await this.pool.query(
+      `TRUNCATE discrepancy_events, discrepancies, reconciliation_runs, merchant_ledger_observations, provider_api_observations, provider_webhook_events, intent_amendments, payment_intents CASCADE`,
+    );
+  }
+
+  /** Test-only raw query (e.g. asserting trigger rejection). */
+  async rawForTests<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+    const res = await this.pool.query(sql, params as unknown[]);
+    return res.rows as T[];
   }
 
   async createIntent(row: Omit<IntentRow, 'id' | 'createdAt'>): Promise<IntentRow> {

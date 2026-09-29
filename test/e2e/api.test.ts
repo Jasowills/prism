@@ -5,7 +5,8 @@ import type { INestApplication } from '@nestjs/common';
 let app: INestApplication | null = null;
 
 async function boot(): Promise<INestApplication> {
-  process.env.PRISM_FORCE_MEMORY = '1';
+  // No PRISM_FORCE_MEMORY: PrismService.init uses Postgres when reachable,
+  // memory otherwise. Both paths are valid test targets.
   process.env.PRISM_API_KEY = '';
   process.env.FLW_WEBHOOK_SECRET = 'test-secret';
   const { NestFactory } = await import('@nestjs/core');

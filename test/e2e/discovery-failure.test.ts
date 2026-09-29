@@ -11,7 +11,7 @@ describe('discovery failure handling', () => {
   let app: INestApplication | null = null;
 
   beforeAll(async () => {
-    process.env.PRISM_FORCE_MEMORY = '1';
+    // No PRISM_FORCE_MEMORY: Postgres when reachable, memory otherwise.
     process.env.PRISM_API_KEY = '';
     process.env.FLW_WEBHOOK_SECRET = 'test-secret';
     process.env.FLW_SECRET_KEY = 'sk-test-unreachable';

@@ -69,5 +69,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test:integration
+        env:
+          # Exercise the real Postgres + Redis services (tests fall back to
+          # memory/inline when unreachable, but here they must connect).
+          DATABASE_URL: postgresql://prism:prism@localhost:5433/prism
+          REDIS_URL: redis://localhost:6380
       - run: pnpm test:e2e
+        env:
+          DATABASE_URL: postgresql://prism:prism@localhost:5433/prism
+          REDIS_URL: redis://localhost:6380
       - run: pnpm test:faults
